@@ -30,6 +30,7 @@ public actor CloudKitSyncProvider: SyncProvider {
     private let container: CKContainer
     private let database: CKDatabase
     private let zone: CKRecordZone
+    private let configuration: CloudSyncConfiguration
     private let deviceIdentifier: String
     private let retryPolicy: SyncRetryPolicy
     private var hasVerifiedZone = false
@@ -37,17 +38,18 @@ public actor CloudKitSyncProvider: SyncProvider {
     /// Fails (returns nil) rather than trapping when this build cannot use
     /// CloudKit. Callers use `InertSyncProvider` in that case.
     public init?(
-        containerIdentifier: String = CloudSyncConstants.containerIdentifier,
+        configuration: CloudSyncConfiguration,
         deviceIdentifier: String,
         retryPolicy: SyncRetryPolicy = SyncRetryPolicy()
     ) {
-        guard let container = CloudKitAvailability.makeContainer(identifier: containerIdentifier) else {
+        guard let container = CloudKitAvailability.makeContainer(for: configuration) else {
             return nil
         }
+        self.configuration = configuration
         self.container = container
         self.database = container.privateCloudDatabase
         self.zone = CKRecordZone(
-            zoneID: CKRecordZone.ID(zoneName: CloudSyncConstants.zoneName, ownerName: CKCurrentUserDefaultName)
+            zoneID: CKRecordZone.ID(zoneName: configuration.zoneName, ownerName: CKCurrentUserDefaultName)
         )
         self.deviceIdentifier = deviceIdentifier
         self.retryPolicy = retryPolicy
@@ -56,7 +58,7 @@ public actor CloudKitSyncProvider: SyncProvider {
     // MARK: - Availability
 
     public func unavailableReason() async -> SyncUnavailableReason? {
-        if let buildReason = CloudKitAvailability.buildLevelUnavailableReason() {
+        if let buildReason = CloudKitAvailability.buildLevelUnavailableReason(for: configuration) {
             return buildReason
         }
         do {
@@ -195,7 +197,7 @@ public actor CloudKitSyncProvider: SyncProvider {
         if let existing = try? await database.record(for: recordID) {
             record = existing
         } else {
-            record = CKRecord(recordType: CloudSyncConstants.recordType, recordID: recordID)
+            record = CKRecord(recordType: configuration.recordType, recordID: recordID)
         }
 
         // CKAsset needs a file on disk; it is read at save time, so the temp file
@@ -240,7 +242,7 @@ public actor CloudKitSyncProvider: SyncProvider {
         if let existing = try? await database.record(for: recordID) {
             record = existing
         } else {
-            record = CKRecord(recordType: CloudSyncConstants.recordType, recordID: recordID)
+            record = CKRecord(recordType: configuration.recordType, recordID: recordID)
         }
         guard let fileType = SyncClassifier.classify(relativePath: tombstone.relativePath) else {
             throw SyncProviderError.invalidData

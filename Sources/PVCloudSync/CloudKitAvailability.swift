@@ -29,46 +29,41 @@ import CloudKit
 ///
 /// Hence: a hard simulator gate, plus a provisioning-profile probe on device.
 ///
-/// ## iCube's extra gate, which iFly does not have and needs
+/// ## The provisioning gate (`CloudSyncConfiguration.containerIsProvisioned`)
 ///
 /// iFly treats "no `embedded.mobileprovision`" as entitled, on the reasoning that
 /// App Store validation already enforced the entitlement. **That reasoning does
-/// not hold for iCube today**, because iCube's container is not provisioned and
-/// none of the entitlements files request it — so an App Store / TestFlight
+/// not hold for an app whose container is not provisioned yet** (iCube until
+/// 2026-10-14), where none of the entitlements files request it — so an App Store / TestFlight
 /// build would take that branch, call `CKContainer.init`, and trap. Everything
-/// here is therefore gated behind `containerIsProvisioned`, which is the single
-/// line to flip once the account work is done.
+/// here is therefore gated behind the configuration's `containerIsProvisioned`.
 public enum CloudKitAvailability {
 
-    /// `true` since 2026-10-14: the container `CloudSyncConstants.containerIdentifier`
-    /// exists and iCloud is enabled on every shipping App ID (checked through the
-    /// App Store Connect API), and all four entitlements files request it. The
-    /// provisioning-profile probe below still turns CloudKit off on a build whose
-    /// profile lacks the container (re-signed sideloads), so this never traps.
-    public static let containerIsProvisioned = true
-
-    /// Why CloudKit cannot be used on this build, or `nil` if it can.
-    public static func buildLevelUnavailableReason() -> SyncUnavailableReason? {
-        guard containerIsProvisioned else { return .containerNotProvisioned }
-        guard isUsable(forContainerIdentifier: CloudSyncConstants.containerIdentifier) else {
+    /// Why CloudKit cannot be used with `configuration` on this build, or `nil`
+    /// if it can. The provisioning-profile probe below turns CloudKit off on a
+    /// build whose profile lacks the container (re-signed sideloads), so a
+    /// provisioned configuration never traps either.
+    public static func buildLevelUnavailableReason(for configuration: CloudSyncConfiguration) -> SyncUnavailableReason? {
+        guard configuration.containerIsProvisioned else { return .containerNotProvisioned }
+        guard isUsable(forContainerIdentifier: configuration.containerIdentifier) else {
             return .entitlementMissing
         }
         return nil
     }
 
-    /// False when this build cannot construct the primary container without
+    /// False when this build cannot construct the app's container without
     /// trapping. Callers must treat false as "the iCloud feature is quietly
     /// off", never as an error to surface.
-    public static var isUsable: Bool {
-        buildLevelUnavailableReason() == nil
+    public static func isUsable(_ configuration: CloudSyncConfiguration) -> Bool {
+        buildLevelUnavailableReason(for: configuration) == nil
     }
 
     /// Whether `identifier` may be passed to `CKContainer(identifier:)` without
-    /// trapping on this build.
+    /// trapping on this build. Doesn't know whether the container is
+    /// provisioned; `buildLevelUnavailableReason(for:)` checks that first.
     public static func isUsable(forContainerIdentifier identifier: String) -> Bool {
         let trimmed = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-        guard containerIsProvisioned else { return false }
         #if targetEnvironment(simulator)
         // Covers the tvOS Simulator too. CloudKit is unusable there in practice
         // anyway — re-signing a simulator build strips iCloud entitlements — so
@@ -79,7 +74,7 @@ public enum CloudKitAvailability {
         switch provisioningCloudKitContainers {
         case .none:
             // No embedded profile (App Store): store validation enforced the
-            // entitlement. Only reachable once `containerIsProvisioned` is true.
+            // entitlement. Callers check `containerIsProvisioned` before this.
             return true
         case .some(let containers):
             return containers.contains(trimmed)
@@ -90,9 +85,9 @@ public enum CloudKitAvailability {
     #if canImport(CloudKit)
     /// Soft-fail factory: never calls `CKContainer(identifier:)` on a build where
     /// it would trap.
-    public static func makeContainer(identifier: String = CloudSyncConstants.containerIdentifier) -> CKContainer? {
-        guard isUsable(forContainerIdentifier: identifier) else { return nil }
-        return CKContainer(identifier: identifier.trimmingCharacters(in: .whitespacesAndNewlines))
+    public static func makeContainer(for configuration: CloudSyncConfiguration) -> CKContainer? {
+        guard isUsable(configuration) else { return nil }
+        return CKContainer(identifier: configuration.containerIdentifier.trimmingCharacters(in: .whitespacesAndNewlines))
     }
     #endif
 

@@ -3,25 +3,11 @@
 
 import Foundation
 
-/// Identifiers for iCube's CloudKit sync, in one place.
+/// The CloudKit record schema's field names and the default timings.
 ///
-/// - Note: provisioned 2026-10-14 (container created, iCloud enabled on every shipping
-///   App ID, entitlements in all four files; `CloudKitAvailability.containerIsProvisioned`).
+/// The app-specific identifiers (container, zone, record type) are in
+/// `CloudSyncConfiguration`, which each app supplies.
 public enum CloudSyncConstants {
-
-    /// iCube's CloudKit container. Analogue of iFly's `iCloud.com.joemattiello.iFly`.
-    public static let containerIdentifier = "iCloud.com.joemattiello.iCube"
-
-    /// Custom record zone in the **private** database. A custom zone (rather
-    /// than the default zone) is what makes `CKFetchRecordZoneChangesOperation`
-    /// usable, which in turn is what lets the provider enumerate every record
-    /// without needing `recordName` marked Queryable in the CloudKit schema.
-    public static let zoneName = "iCubeUserData"
-
-    /// The one and only record type. iFly proved a single type is enough: the
-    /// category lives in a field, not in the schema, so adding a
-    /// `SyncableFileType` case never requires a CloudKit schema migration.
-    public static let recordType = "iCubeUserFile"
 
     /// Field names on `recordType`. Centralised because a typo in one of these
     /// is a silent "record never round-trips" bug, not a compile error.
@@ -48,7 +34,7 @@ public enum CloudSyncConstants {
     /// How long a locally trashed file is kept before the trash purges it.
     public static let trashRetention: TimeInterval = 30 * 24 * 60 * 60
 
-    /// How often the background timer fires a sync (30 minutes, matching iFly).
+    /// Default for how often the background timer fires a sync (30 minutes).
     public static let backgroundSyncInterval: TimeInterval = 30 * 60
 
     /// Filesystem-watcher debounce.

@@ -19,7 +19,7 @@ final class CloudKitRecordMappingTests: XCTestCase {
         size: Int64 = 1024,
         deleted: Bool = false
     ) -> CKRecord {
-        let record = CKRecord(recordType: CloudSyncConstants.recordType, recordID: CKRecord.ID(recordName: path))
+        let record = CKRecord(recordType: "TestUserFile", recordID: CKRecord.ID(recordName: path))
         record[CloudSyncConstants.Field.fileName] = path as CKRecordValue
         record[CloudSyncConstants.Field.lastModified] = epoch as CKRecordValue
         record[CloudSyncConstants.Field.checksum] = "abc" as CKRecordValue
