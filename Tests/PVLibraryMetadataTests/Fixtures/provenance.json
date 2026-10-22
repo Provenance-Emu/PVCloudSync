@@ -1,0 +1,10 @@
+{
+  "original_source": "Source/iOS/App/Common/Swift/LibraryMetadataStore.swift",
+  "source_sha256": "42542d7cc96dd93b4b7c2912e774227433393409d7c2e586feca9ae20e7487bc",
+  "tests_sha256": "773c5fad14d987b1fc0e14e57ac9c10913138fedd5a52e09f2921de0025cadc8",
+  "fixture_reference_dates": [
+    123456789,
+    123456790
+  ],
+  "note": "Unmodified original store behavior; fixture capture precedes extraction."
+}
