@@ -382,6 +382,35 @@ public final class LibraryMetadataStore: @unchecked Sendable {
     }
   }
 
+  /// Export authoritative committed bytes under the shared file gate, preserving
+  /// opaque fields and the exact encoding of an existing primary or recovery copy.
+  public func exportDocument(for identity: Identity) throws -> Data {
+    try withAccess {
+      let bytes = try readBytes(for: identity)
+      try LibraryMetadataDocument.validate(data: bytes, filename: identity.fileName)
+      return bytes
+    }
+  }
+
+  /// Admit remote records and durably merge them with the latest authority in
+  /// one synchronous file transaction. Received timestamps are never restamped.
+  public func mergeDocument(_ data: Data, for identity: Identity) throws -> Data {
+    try withAccess {
+      try LibraryMetadataDocument.validateIncoming(data: data, for: identity)
+      let current = try readBytes(for: identity)
+      let bytes = try LibraryMetadataDocument.merge(local: current, remote: data, for: identity)
+      let entry = try makeRecord(bytes, for: identity)
+      let victims = try prepareAdmission(entry, for: identity)
+      if bytes != current {
+        let fileURL = directoryURL.appendingPathComponent(identity.fileName)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        try write(bytes, fileURL)
+      }
+      adopt(entry, for: identity, evicting: victims)
+      return bytes
+    }
+  }
+
   public func reload() throws {
     try withAccess { stale.formUnion(records.keys); stale.formUnion(summaries.keys) }
   }

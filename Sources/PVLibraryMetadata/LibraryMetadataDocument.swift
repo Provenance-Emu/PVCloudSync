@@ -13,6 +13,22 @@ public enum LibraryMetadataDocument {
     _ = try decodeDocument(data, filename: filename)
   }
 
+  /// Strict remote admission leaves historical local decoding unchanged. Only
+  /// known records require stamps; future records and members remain opaque.
+  public static func validateIncoming(data: Data, for identity: LibraryMetadataStore.Identity) throws {
+    let object = try decodeDocument(data, filename: identity.fileName)
+    guard Identity.parseCanonical(identity.rawValue) == identity else { throw StoreError.identityMismatch }
+    for field in ["title", "cover", "tags"] {
+      guard let raw = object[identity.rawValue + ":" + field] else { continue }
+      let stamp = (raw as? [String: Any])?["updatedAt"]
+      // JSON booleans bridge to NSNumber too; inspect their actual CF type.
+      if let number = stamp as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() {
+        throw StoreError.invalidTimestamp
+      }
+      guard timestamp(stamp).isFinite else { throw StoreError.invalidTimestamp }
+    }
+  }
+
   public static func draft(from data: Data, for identity: LibraryMetadataStore.Identity) throws -> LibraryMetadataStore.Draft {
     try project(decodeDocument(data, filename: identity.fileName), for: identity)
   }
