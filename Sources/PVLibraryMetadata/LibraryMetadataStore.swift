@@ -9,7 +9,7 @@ import CryptoKit
 public final class LibraryMetadataStore: @unchecked Sendable {
   public struct Identity: Hashable, Sendable {
     public let rawValue: String
-    fileprivate init(_ rawValue: String) { self.rawValue = rawValue }
+    init(_ rawValue: String) { self.rawValue = rawValue }
     public var fileName: String {
       SHA256.hash(data: Data(rawValue.utf8)).map { String(format: "%02x", $0) }.joined() + ".json"
     }
@@ -19,6 +19,22 @@ public final class LibraryMetadataStore: @unchecked Sendable {
       guard !id.isEmpty, id != "<UNKNOWN>", !id.hasPrefix("ID-"),
             discNumber >= 0, revision >= 0 else { return nil }
       return Identity("game:" + Data(id.utf8).base64EncodedString() + ":\(discNumber):\(revision)")
+    }
+
+    /// Accepts only exact canonical strings emitted by the identity constructors.
+    public static func parseCanonical(_ raw: String) -> Identity? {
+      let parts = raw.split(separator: ":", omittingEmptySubsequences: false)
+      let identity: Identity?
+      if parts.count == 2, parts[0] == "sha256" {
+        identity = contentHash(String(parts[1]))
+      } else if parts.count == 4, parts[0] == "game",
+                let data = Data(base64Encoded: String(parts[1])),
+                let gameID = String(data: data, encoding: .utf8),
+                let disc = Int(parts[2]), let revision = Int(parts[3]) {
+        identity = game(gameID: gameID, discNumber: disc, revision: revision)
+      } else { return nil }
+      guard let identity, identity.rawValue == raw else { return nil }
+      return identity
     }
 
     /// Unknown/homebrew entries require a content identity supplied by the caller.
@@ -189,7 +205,7 @@ public final class LibraryMetadataStore: @unchecked Sendable {
       try refreshIfNeeded(identity)
       var entry = records[identity]!
       if let projection = entry.projection { touch(identity); return projection }
-      let projection = try Self.project(Self.decodeDocument(entry.bytes, filename: identity.fileName), for: identity)
+      let projection = try LibraryMetadataDocument.project(LibraryMetadataDocument.decodeDocument(entry.bytes, filename: identity.fileName), for: identity)
       entry.projection = projection
       let victims = try prepareAdmission(entry, for: identity)
       adopt(entry, for: identity, evicting: victims)
@@ -233,8 +249,8 @@ public final class LibraryMetadataStore: @unchecked Sendable {
   }
 
   private func makeRecord(_ bytes: Data, for identity: Identity, projection: Draft? = nil) throws -> CachedRecord {
-    let object = try Self.decodeDocument(bytes, filename: identity.fileName)
-    let fields = try Self.project(object, for: identity, includeCover: false)
+    let object = try LibraryMetadataDocument.decodeDocument(bytes, filename: identity.fileName)
+    let fields = try LibraryMetadataDocument.project(object, for: identity, includeCover: false)
     return CachedRecord(bytes: bytes, summary: Summary(title: fields.title, tags: fields.tags), projection: projection)
   }
 
@@ -268,22 +284,13 @@ public final class LibraryMetadataStore: @unchecked Sendable {
   /// complete validated records using the sync engine's opaque per-field LWW
   /// contract, including explicit null tombstones and canonical-byte tie breaks.
   private func recoverySnapshot(_ cached: Data, for identity: Identity) throws -> Data {
-    var merged = try Self.decodeDocument(cached, filename: identity.fileName)
+    var merged = try LibraryMetadataDocument.decodeDocument(cached, filename: identity.fileName)
     let sources = [try? boundedRead(directoryURL.appendingPathComponent(identity.fileName)),
                    try? recoveryBytes(for: identity)]
     for source in sources {
-      guard let source, let object = try? Self.decodeDocument(source, filename: identity.fileName) else { continue }
-      for (key, incoming) in object {
-        guard let current = merged[key] else { merged[key] = incoming; continue }
-        let oldStamp = Self.timestamp((current as? [String: Any])?["updatedAt"])
-        let newStamp = Self.timestamp((incoming as? [String: Any])?["updatedAt"])
-        if newStamp > oldStamp { merged[key] = incoming }
-        else if newStamp == oldStamp {
-          let oldBytes = try JSONSerialization.data(withJSONObject: current, options: [.sortedKeys, .fragmentsAllowed])
-          let newBytes = try JSONSerialization.data(withJSONObject: incoming, options: [.sortedKeys, .fragmentsAllowed])
-          if oldBytes.lexicographicallyPrecedes(newBytes) { merged[key] = incoming }
-        }
-      }
+      guard let source,
+            let object = try? LibraryMetadataDocument.decodeDocument(source, filename: identity.fileName) else { continue }
+      merged = try LibraryMetadataDocument.mergeObjects(local: merged, remote: object)
     }
     let result = try JSONSerialization.data(withJSONObject: merged, options: [.sortedKeys])
     try Self.validateDocument(data: result, filename: identity.fileName)
@@ -329,20 +336,20 @@ public final class LibraryMetadataStore: @unchecked Sendable {
   /// Blank title, nil cover and an empty tag list mean clear, with retained stamps.
   @discardableResult
   public func commit(_ draft: Draft, baseline: Draft, for identity: Identity, at date: Date = Date()) throws -> Draft {
-    let edited = try Self.normalized(draft)
-    let baseline = try Self.normalized(baseline)
+    let edited = try LibraryMetadataDocument.normalized(draft)
+    let baseline = try LibraryMetadataDocument.normalized(baseline)
     let now = date.timeIntervalSinceReferenceDate
     guard now.isFinite else { throw StoreError.invalidTimestamp }
     return try withAccess {
-      var candidate = try Self.decodeDocument(readBytes(for: identity), filename: identity.fileName)
+      var candidate = try LibraryMetadataDocument.decodeDocument(readBytes(for: identity), filename: identity.fileName)
       let fileURL = directoryURL.appendingPathComponent(identity.fileName)
       // Reject a malformed current record rather than replacing evidence of it.
-      _ = try Self.project(candidate, for: identity)
+      _ = try LibraryMetadataDocument.project(candidate, for: identity)
       var changed = false
       func update(_ field: String, value: Any) throws {
         let key = identity.rawValue + ":" + field
         var record = candidate[key] as? [String: Any] ?? [:]
-        let previous = Self.timestamp(record["updatedAt"])
+        let previous = LibraryMetadataDocument.timestamp(record["updatedAt"])
         let stamp = max(now, previous.isFinite ? previous.nextUp : now)
         guard stamp.isFinite else { throw StoreError.invalidTimestamp }
         record["updatedAt"] = stamp
@@ -359,7 +366,7 @@ public final class LibraryMetadataStore: @unchecked Sendable {
       if edited.tags != baseline.tags {
         try update("tags", value: edited.tags.isEmpty ? NSNull() : edited.tags)
       }
-      let projection = try Self.project(candidate, for: identity)
+      let projection = try LibraryMetadataDocument.project(candidate, for: identity)
       let bytes = try JSONSerialization.data(withJSONObject: candidate, options: [.sortedKeys])
       let entry = try makeRecord(bytes, for: identity, projection: projection)
       // Snapshot eviction victims before committing: a recovery failure cannot
@@ -417,7 +424,7 @@ public final class LibraryMetadataStore: @unchecked Sendable {
   /// Validate untrusted cloud bytes before the sync scanner promotes them. Unknown
   /// record/field keys remain opaque so a newer schema can round-trip safely.
   public static func validateDocument(data: Data, filename: String? = nil) throws {
-    _ = try decodeDocument(data, filename: filename)
+    try LibraryMetadataDocument.validate(data: data, filename: filename)
   }
 
   public static func isValidShardFilename(_ filename: String) -> Bool {
@@ -428,91 +435,4 @@ public final class LibraryMetadataStore: @unchecked Sendable {
     }
   }
 
-  private static func decodeDocument(_ bytes: Data, filename: String?) throws -> [String: Any] {
-    guard bytes.count <= maxDocumentBytes else { throw StoreError.documentTooLarge }
-    guard let object = try JSONSerialization.jsonObject(with: bytes) as? [String: Any] else {
-      throw StoreError.invalidDocument
-    }
-    var identities = Set<Identity>()
-    for key in object.keys where key.hasPrefix("game:") || key.hasPrefix("sha256:") {
-      for field in ["title", "cover", "tags"] where key.hasSuffix(":" + field) {
-        identities.insert(Identity(String(key.dropLast(field.count + 1))))
-      }
-    }
-    if let filename, !isValidShardFilename(filename) { throw StoreError.identityMismatch }
-    for identity in identities {
-      if let filename, identity.fileName != filename { throw StoreError.identityMismatch }
-      _ = try project(object, for: identity, includeCover: false)
-    }
-    return object
-  }
-
-  private static func project(_ object: [String: Any], for identity: Identity, includeCover: Bool = true) throws -> Draft {
-    func value(_ field: String) throws -> Any? {
-      guard let raw = object[identity.rawValue + ":" + field] else { return nil }
-      guard let record = raw as? [String: Any], let value = record["value"] else {
-        throw StoreError.invalidRecord(field)
-      }
-      return value is NSNull ? nil : value
-    }
-    var result = Draft()
-    if let title = try value("title") {
-      guard let title = title as? String else { throw StoreError.invalidRecord("title") }
-      result.title = title
-    }
-    if let cover = try value("cover") {
-      // Bound the encoded form before allocating decoded bytes from remote JSON.
-      guard let encoded = cover as? String, validCoverEncoding(encoded) else {
-        throw StoreError.invalidRecord("cover")
-      }
-      if includeCover {
-        guard let data = Data(base64Encoded: encoded) else { throw StoreError.invalidRecord("cover") }
-        result.coverData = data
-      }
-    }
-    if let tags = try value("tags") {
-      guard let tags = tags as? [String] else { throw StoreError.invalidRecord("tags") }
-      result.tags = tags
-    }
-    return try normalized(result)
-  }
-
-  /// Validate remote base64 without allocating a decoded cover during title/tag
-  /// scans. Padding determines the exact byte count, including the final quartet.
-  private static func validCoverEncoding(_ encoded: String) -> Bool {
-    let bytes = encoded.utf8
-    let count = bytes.count
-    guard count <= ((maxCoverBytes + 2) / 3) * 4, count % 4 == 0 else { return false }
-    let padding = bytes.last == 61 ? (bytes.dropLast().last == 61 ? 2 : 1) : 0
-    guard count / 4 * 3 - padding <= maxCoverBytes else { return false }
-    return bytes.dropLast(padding).allSatisfy {
-      (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 43 || $0 == 47
-    }
-  }
-
-  private static func normalized(_ draft: Draft) throws -> Draft {
-    let title = draft.title?.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard (title?.count ?? 0) <= maxTitleLength else { throw StoreError.titleTooLong }
-    guard (draft.coverData?.count ?? 0) <= maxCoverBytes else { throw StoreError.coverTooLarge }
-    var seen = Set<String>()
-    var tags: [String] = []
-    for raw in draft.tags {
-      let tag = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-      guard tag.count <= maxTagLength else { throw StoreError.tagTooLong }
-      if !tag.isEmpty, seen.insert(tag.lowercased()).inserted { tags.append(tag) }
-    }
-    guard tags.count <= maxTagCount else { throw StoreError.tooManyTags }
-    return Draft(title: title?.isEmpty == false ? title : nil, coverData: draft.coverData, tags: tags)
-  }
-
-  /// Same timestamp forms understood by the pinned opaque-record merger. New
-  /// writes use numeric reference-date seconds, preserving subsecond ordering.
-  private static func timestamp(_ value: Any?) -> Double {
-    if let number = value as? NSNumber, number.doubleValue.isFinite { return number.doubleValue }
-    if let string = value as? String {
-      if let date = ISO8601DateFormatter().date(from: string) { return date.timeIntervalSinceReferenceDate }
-      if let number = Double(string), number.isFinite { return number }
-    }
-    return -.infinity
-  }
 }
