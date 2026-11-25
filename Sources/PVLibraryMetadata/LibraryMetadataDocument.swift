@@ -4,7 +4,7 @@ import Foundation
 
 /// Stateless codec and per-record merge for custom library metadata shards.
 /// Unknown records and nested fields remain opaque for schema compatibility.
-public enum LibraryMetadataDocument {
+@frozen public enum LibraryMetadataDocument {
   typealias Identity = LibraryMetadataStore.Identity
   typealias Draft = LibraryMetadataStore.Draft
   typealias StoreError = LibraryMetadataStore.StoreError

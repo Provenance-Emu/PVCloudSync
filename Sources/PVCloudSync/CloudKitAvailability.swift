@@ -37,7 +37,7 @@ import CloudKit
 /// 2026-10-14), where none of the entitlements files request it — so an App Store / TestFlight
 /// build would take that branch, call `CKContainer.init`, and trap. Everything
 /// here is therefore gated behind the configuration's `containerIsProvisioned`.
-public enum CloudKitAvailability {
+@frozen public enum CloudKitAvailability {
 
     /// Why CloudKit cannot be used with `configuration` on this build, or `nil`
     /// if it can. The provisioning-profile probe below turns CloudKit off on a

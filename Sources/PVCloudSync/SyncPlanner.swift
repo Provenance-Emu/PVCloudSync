@@ -5,7 +5,7 @@ import Foundation
 import PVSyncRules
 
 /// One thing the sync engine has decided to do about one file.
-public enum SyncPlanStep: Sendable, Equatable {
+@frozen public enum SyncPlanStep: Sendable, Equatable {
     /// Present locally, absent or older remotely.
     case upload(SyncableFileMetadata, reason: UploadReason)
     /// Present remotely, absent or older locally.
@@ -30,7 +30,7 @@ public enum SyncPlanStep: Sendable, Equatable {
     /// other device's work, and say so in the log.
     case restore(SyncableFileMetadata)
 
-    public enum UploadReason: String, Sendable {
+    @frozen public enum UploadReason: String, Sendable {
         case localOnly
         case contentChanged
         case conflictKeepLocal

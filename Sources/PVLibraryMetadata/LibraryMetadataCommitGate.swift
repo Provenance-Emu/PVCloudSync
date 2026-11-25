@@ -17,7 +17,7 @@ public final class LibraryMetadataCommitGate: @unchecked Sendable {
     fileprivate let generation: UUID
   }
 
-  public enum GateError: Error, Sendable {
+  @frozen public enum GateError: Error, Sendable {
     case invalidPermit
   }
 

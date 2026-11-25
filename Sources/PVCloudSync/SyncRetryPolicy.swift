@@ -10,7 +10,7 @@ import Foundation
 /// this (see `SyncRetryFacts.init(ckError:)` in `CloudKitErrorMapping.swift`).
 public struct SyncRetryFacts: Sendable, Equatable {
 
-    public enum Kind: String, Sendable, Equatable {
+    @frozen public enum Kind: String, Sendable, Equatable {
         /// CloudKit is throttling us. `retryAfterSeconds` is authoritative.
         case rateLimited
         /// Server-side transient: service unavailable, zone busy.
@@ -36,7 +36,7 @@ public struct SyncRetryFacts: Sendable, Equatable {
     }
 }
 
-public enum SyncRetryDecision: Sendable, Equatable {
+@frozen public enum SyncRetryDecision: Sendable, Equatable {
     case retry(afterSeconds: Double)
     case giveUp
 }

@@ -5,7 +5,7 @@ import Foundation
 
 /// Why sync is not running. Surfaced verbatim in the settings pane: "off" with
 /// no explanation is the failure mode this exists to prevent.
-public enum SyncUnavailableReason: Sendable, Equatable {
+@frozen public enum SyncUnavailableReason: Sendable, Equatable {
     /// The CloudKit container has not been provisioned in the developer account
     /// and the entitlements do not request it. This is the state iCube ships in
     /// until that work is done — see `CloudSyncConstants`.
@@ -42,7 +42,7 @@ public enum SyncUnavailableReason: Sendable, Equatable {
 }
 
 /// Errors a provider can raise.
-public enum SyncProviderError: LocalizedError, Equatable {
+@frozen public enum SyncProviderError: LocalizedError, Equatable {
     case unavailable(SyncUnavailableReason)
     case fileNotFound
     case invalidData

@@ -7,11 +7,11 @@ import Foundation
 ///
 /// The app-specific identifiers (container, zone, record type) are in
 /// `CloudSyncConfiguration`, which each app supplies.
-public enum CloudSyncConstants {
+@frozen public enum CloudSyncConstants {
 
     /// Field names on `recordType`. Centralised because a typo in one of these
     /// is a silent "record never round-trips" bug, not a compile error.
-    public enum Field {
+    @frozen public enum Field {
         public static let fileName = "fileName"
         public static let fileData = "fileData"
         public static let lastModified = "lastModified"
