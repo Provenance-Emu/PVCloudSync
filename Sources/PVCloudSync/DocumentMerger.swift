@@ -15,13 +15,13 @@ public protocol DocumentMerger: Sendable {
     func merge(local: Data, remote: Data) throws -> Data
 }
 
-public enum DocumentMergeError: Error, Equatable {
+@frozen public enum DocumentMergeError: Error, Equatable {
     case notAnObject
     case unsupportedCategory
 }
 
 /// Which merger handles which category.
-public enum DocumentMergers {
+@frozen public enum DocumentMergers {
     public static func merger(for type: SyncableFileType) -> (any DocumentMerger)? {
         switch type {
         case .libraryState: return LibraryStateDocumentMerger()

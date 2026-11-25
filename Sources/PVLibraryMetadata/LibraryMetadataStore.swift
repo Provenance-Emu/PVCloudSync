@@ -67,7 +67,7 @@ public final class LibraryMetadataStore: @unchecked Sendable {
   public static let maxCoverBytes = 256 * 1024
   public static let maxDocumentBytes = 1024 * 1024
 
-  public enum StoreError: LocalizedError {
+  @frozen public enum StoreError: LocalizedError {
     case invalidDocument, invalidRecord(String), invalidTransaction, identityMismatch
     case titleTooLong, tooManyTags, tagTooLong, coverTooLarge, documentTooLarge, invalidTimestamp
     case cacheCapacity, recoveryUnavailable

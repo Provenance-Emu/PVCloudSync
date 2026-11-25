@@ -5,7 +5,7 @@ import Foundation
 
 /// Why a sync was asked for. Carried through to the log so a device boot log
 /// says what churned and why.
-public enum SyncTrigger: String, Sendable, Equatable {
+@frozen public enum SyncTrigger: String, Sendable, Equatable {
     case enabled
     case appForegrounded
     case appBackgrounded
@@ -22,7 +22,7 @@ public enum SyncTrigger: String, Sendable, Equatable {
 }
 
 /// Something that happened which the sync engine has to react to.
-public enum SyncLifecycleEvent: Sendable, Equatable {
+@frozen public enum SyncLifecycleEvent: Sendable, Equatable {
     case trigger(SyncTrigger)
     /// A game is about to boot.
     case emulationWillStart
@@ -35,7 +35,7 @@ public enum SyncLifecycleEvent: Sendable, Equatable {
 }
 
 /// What the caller should do about it.
-public enum SyncLifecycleAction: Sendable, Equatable {
+@frozen public enum SyncLifecycleAction: Sendable, Equatable {
     /// Begin a sync run now.
     case startSync(SyncTrigger)
     /// A run is in flight and a game just started: bail out of the loop at the

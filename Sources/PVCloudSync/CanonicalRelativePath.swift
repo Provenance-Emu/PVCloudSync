@@ -31,7 +31,7 @@ import Foundation
 /// is an identity key: changing how an in-tree file's path is derived would
 /// orphan every existing record and re-upload the library. Anything deriving a
 /// relative path should call this rather than write the expression again.
-public enum CanonicalRelativePath {
+@frozen public enum CanonicalRelativePath {
 
     /// Canonical on-disk path: resolves the `/var`→`/private/var` (and `/tmp`)
     /// symlinks and removes `.`/`..`, so two URLs naming the same file compare

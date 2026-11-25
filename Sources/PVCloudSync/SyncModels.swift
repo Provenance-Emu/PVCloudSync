@@ -5,7 +5,7 @@ import Foundation
 import PVSyncRules
 
 /// Where one file stands relative to the cloud copy.
-public enum SyncStatus: String, Codable, Sendable, CaseIterable {
+@frozen public enum SyncStatus: String, Codable, Sendable, CaseIterable {
     /// Present here, not yet known to the cloud.
     case local
     case synced
@@ -94,7 +94,7 @@ public struct SyncConflict: Identifiable, Sendable, Equatable {
 
     /// What kind of disagreement this is. Decides the wording and which
     /// resolutions make sense.
-    public enum Kind: String, Sendable, Equatable {
+    @frozen public enum Kind: String, Sendable, Equatable {
         /// Both sides changed the file within the simultaneity window.
         case bothChanged
         /// Another device deleted the file; this device changed it after the
@@ -163,7 +163,7 @@ public struct SyncConflict: Identifiable, Sendable, Equatable {
 }
 
 /// How a conflict is to be settled.
-public enum ConflictResolution: Sendable, Equatable {
+@frozen public enum ConflictResolution: Sendable, Equatable {
     case useLocal
     case useRemote
     case keepBoth
@@ -220,7 +220,7 @@ public struct SyncStatistics: Sendable, Equatable {
 
 /// One line in the sync log surfaced by the settings pane.
 public struct SyncEvent: Identifiable, Sendable, Equatable {
-    public enum Kind: String, Sendable {
+    @frozen public enum Kind: String, Sendable {
         case upload
         case download
         case conflict

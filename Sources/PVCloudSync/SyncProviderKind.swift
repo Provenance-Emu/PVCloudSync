@@ -9,7 +9,7 @@ import Foundation
 /// trash and settings can be keyed by backend from the start, and so the
 /// mapping in the design spec (section 9) has something to attach to when the
 /// content server and the shared iCloud Drive folder arrive.
-public enum SyncProviderKind: String, Codable, CaseIterable, Sendable {
+@frozen public enum SyncProviderKind: String, Codable, CaseIterable, Sendable {
     /// CloudKit private database. Works on iOS and tvOS.
     case iCloud
     /// `Provenance-Emu/emulator-content-server` over the LAN or a relay.

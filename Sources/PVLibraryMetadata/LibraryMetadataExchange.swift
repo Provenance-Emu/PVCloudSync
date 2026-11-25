@@ -4,7 +4,7 @@ import Foundation
 
 /// Admission failures for shared library metadata wire values. JSON syntax and
 /// underlying document validation errors retain their original error types.
-public enum LibraryEditsWireError: Error, Equatable, Sendable {
+@frozen public enum LibraryEditsWireError: Error, Equatable, Sendable {
   case invalidSHA256, invalidByteCount, invalidIdentity, invalidDigest, evidenceMismatch
   case tooManyEntries, duplicateIdentity, cursorTooLarge
   case manifestTooLarge, documentTooLarge, envelopeTooLarge
@@ -20,7 +20,7 @@ private func isWireSHA256(_ value: String) -> Bool {
 /// entry locally, a provider must independently verify header/stat evidence or
 /// an import receipt. Paths and credentials are deliberately absent.
 public struct LibraryEditsContentEvidence: Codable, Equatable, Sendable {
-  public enum Kind: String, Codable, Sendable {
+  @frozen public enum Kind: String, Codable, Sendable {
     case disc, content
   }
 
@@ -140,7 +140,7 @@ public struct LibraryEditsDocument: Codable, Equatable, Sendable {
 
 /// Use these entry points at the network boundary to bound raw bytes before
 /// JSON/base64 decoding. Direct Codable use still validates each model's fields.
-public enum LibraryEditsWireCodec {
+@frozen public enum LibraryEditsWireCodec {
   public static let maxManifestBytes = 256 * 1024
   public static let maxEnvelopeBytes = 2 * 1024 * 1024
 
